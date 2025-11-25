@@ -13,3 +13,17 @@ body {
     color-scheme: dark;
   }
 }
+
+.cell {
+  width: 50px;
+  height: 50px;
+  line-height: 50px;
+  text-align: center;
+}
+
+#board {
+  display: inline-grid;
+  column-gap: 4px;
+  row-gap: 4px;
+  margin: 10px;
+}
