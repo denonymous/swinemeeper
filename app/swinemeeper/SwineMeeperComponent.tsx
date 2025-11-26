@@ -1,19 +1,25 @@
 import { useCallback, useMemo, useState } from 'react'
-import type { Cell, Coords, GameStatus } from './types'
+import type { Difficulty, Cell, Coords, GameStatus, Settings } from './types'
 import { CellComponent } from './CellComponent'
 
-export function SwineMeeperComponent() {
-  const rowCount = 16
-  const colCount = 30
-  const mineCount = 50
+export const difficulties: Map<Difficulty, Settings> = new Map()
+  .set('BEGINNER', { colCount: 8, mineCount: 10, rowCount: 8 })
+  .set('INTERMEDIATE', { colCount: 16, mineCount: 40, rowCount: 16 })
+  .set('EXPERT', { colCount: 30, mineCount: 99, rowCount: 16 })
 
+export function SwineMeeperComponent() {
   const [cells, setCells] = useState<Map<string, Cell>>()
-  const [status, setStatus] = useState<GameStatus>('IN PROGRESS')
+  const [status, setStatus] = useState<GameStatus>('NONE')
+  const [difficulty, setDifficulty] = useState<Difficulty>('BEGINNER')
+
+  const colCount = difficulties.get(difficulty)?.colCount || 0
+  const mineCount = difficulties.get(difficulty)?.mineCount || 0
+  const rowCount = difficulties.get(difficulty)?.rowCount || 0
 
   const newGameCallback = useCallback(() => {
     const f = generateCellMap(colCount, rowCount, mineCount)
     setCells(f)
-  }, [])
+  }, [difficulty])
 
   const onCellClick = (cell: Cell) => {
     const { status: evaluatedStatus, cells: evaluatedCells } = cells
@@ -35,8 +41,10 @@ export function SwineMeeperComponent() {
   useMemo(() => {
     if (status === 'LOST') {
       alert('OINK OINK OINK')
+      setStatus('NONE')
     } else if (status === 'WON') {
       alert('WINNER WINNER CHICKY DINNER')
+      setStatus('NONE')
     }
   }, [status])
 
@@ -44,7 +52,7 @@ export function SwineMeeperComponent() {
     <>
       <span id="board">
         {
-          cells && [ ...cells.values() ]
+          cells && [...cells.values()]
             .map((c) => {
               const neighborMineCount = findNeighbors(c.coords, cells).filter((c) => c.isMine).length
               return (
@@ -61,6 +69,10 @@ export function SwineMeeperComponent() {
       </span>
 
       <div></div>
+
+      <select onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
+        {[...difficulties.keys()].map((d) => <option value={d} key={d}>{d.toLowerCase()}</option>)}
+      </select>
 
       <button onClick={newGameCallback} style={{ backgroundColor: '#ccc', border: '1px solid #000', padding: '8px', margin: '4px' }}>
         new game
@@ -85,9 +97,9 @@ const addNewMine = (mines: Set<string>, colCount: number, rowCount: number): Set
 }
 
 const findNeighbors = (coords: Coords, cells: Map<string, Cell>): readonly Cell[] =>
-  [ -1, 0, 1 ]
+  [-1, 0, 1]
     .reduce((accY, yDifferential) => {
-      const neighbors = [ -1, 0, 1 ]
+      const neighbors = [-1, 0, 1]
         .reduce((accX, xDifferential) => {
           const neighborCoords = { x: coords.x + xDifferential, y: coords.y + yDifferential }
           const sNeighborCoords = JSON.stringify(neighborCoords)
@@ -96,40 +108,40 @@ const findNeighbors = (coords: Coords, cells: Map<string, Cell>): readonly Cell[
 
           const isValid = validNeighbor
             && !(neighborCoords.x === coords.x && neighborCoords.y === coords.y)
-          
+
           return isValid
-            ? [ ...accX, validNeighbor ]
+            ? [...accX, validNeighbor]
             : accX
         }, [] as readonly Cell[])
-      
-      return [ ...accY, ...neighbors ]
+
+      return [...accY, ...neighbors]
     }, [] as readonly Cell[])
 
 const generateCellMap = (colCount: number, rowCount: number, mineCount: number): Map<string, Cell> => {
-  const mines = [ ...Array<void>(mineCount) ]
+  const mines = [...Array<void>(mineCount)]
     .reduce((acc) => addNewMine(acc, colCount, rowCount), new Set<string>())
 
-  const cells = [ ...Array(colCount).keys() ].map<Cell[]>(
-    (y) => [ ...Array(rowCount).keys() ].map<Cell>(
-        (x) => {
-          const coords = { x, y }
+  const cells = [...Array(colCount).keys()].map<Cell[]>(
+    (y) => [...Array(rowCount).keys()].map<Cell>(
+      (x) => {
+        const coords = { x, y }
 
-          return {
-            coords,
-            isFlagged: false,
-            isHidden: true,
-            isMine: mines.has(JSON.stringify(coords))
-          }
+        return {
+          coords,
+          isFlagged: false,
+          isHidden: true,
+          isMine: mines.has(JSON.stringify(coords))
         }
-      )
+      }
+    )
   )
-  .flat()
+    .flat()
 
   return mapCells(cells)
 }
 
 const flipEmptyCells = (cells: Map<string, Cell>): Map<string, Cell> => {
-  const emptyCell = [ ...cells.values() ]
+  const emptyCell = [...cells.values()]
     .find((cell) => {
       // if it's hidden or is a mine, skip
       if (cell.isHidden || cell.isMine) {
@@ -155,46 +167,46 @@ const flipEmptyCells = (cells: Map<string, Cell>): Map<string, Cell> => {
         && neighbors.some((cell) => !cell.isMine && cell.isHidden) // has at least one neighbor that's hidden and not a mine
       )
     })
-  
+
   if (!emptyCell) {
     return cells
   }
 
   const flippableNeighbors = findNeighbors(emptyCell.coords, cells)
     .filter((cell) => !cell.isMine && cell.isHidden)
-  
+
   if (!flippableNeighbors) {
     return cells
   }
 
   const flipped = flippableNeighbors
     .reduce((acc, curr) => writeCellToMap({ ...curr, isHidden: false }, acc), cells)
-  
+
   return flipEmptyCells(new Map(flipped))
 }
 
 const evaluateBoard = (cells: Map<string, Cell>): { status: GameStatus, cells: Map<string, Cell> } => {
   const flippedCells = flipEmptyCells(cells)
-  
-  const exploded = [ ...flippedCells.values() ].some((cell) => cell.isMine && !cell.isHidden)
+
+  const exploded = [...flippedCells.values()].some((cell) => cell.isMine && !cell.isHidden)
 
   if (exploded) {
     return {
       status: 'LOST',
       cells: mapCells(
-        [ ...flippedCells.values() ]
+        [...flippedCells.values()]
           .map((cell) => ({ ...cell, isHidden: false }))
       )
     }
   }
 
-  const won = [ ...flippedCells.values() ].every((cell) => (cell.isMine && cell.isHidden) || !cell.isHidden)
+  const won = [...flippedCells.values()].every((cell) => (cell.isMine && cell.isHidden) || !cell.isHidden)
 
   if (won) {
     return {
       status: 'WON',
       cells: mapCells(
-        [ ...flippedCells.values() ]
+        [...flippedCells.values()]
           .map((cell) => ({ ...cell, isHidden: false }))
       )
     }
